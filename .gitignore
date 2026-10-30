@@ -1,0 +1,36 @@
+
+# Visual Studio
+.vs/
+**/bin/
+**/obj/
+*.user
+*.suo
+
+# React / Vite
+**/node_modules/
+**/dist/
+**/.vite/
+**/coverage/
+
+# Secrets and local settings
+**/secrets.json
+**/appsettings.Local.json
+**/appsettings.*.local.json
+**/.env
+**/.env.*
+!**/.env.example
+
+# Logs and temporary files
+*.log
+*.tmp
+*.bak
+TestResults/
+**/TestResults/
+
+# Local databases and backups
+*.mdf
+*.ldf
+*.bak
+*.bacpac
+.git_backup/
+.git_backup/
