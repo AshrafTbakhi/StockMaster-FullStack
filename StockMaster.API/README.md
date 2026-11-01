@@ -1,71 +1,135 @@
-# StockMaster
+# StockMaster — Inventory & Sales Management System
 
-**StockMaster** is a full-stack inventory and sales management application built with ASP.NET Core Web API, SQL Server, Entity Framework Core, and React. It provides a workspace for tracking products, suppliers, categories, sales, and stock movements.
+**StockMaster** is a full-stack inventory and sales management application developed using **ASP.NET Core 8 Web API, React, Entity Framework Core, and Microsoft SQL Server**.
+
+The application provides a centralized workspace for managing products, categories, suppliers, sales transactions, stock movements, and employee accounts.
+
+StockMaster was developed as a practical full-stack training and portfolio project, focusing on API development, database integration, authentication, role-based authorization, frontend development, and automated testing.
 
 ## Features
 
-- **Dashboard:** product count, sales count, inventory value (based on selling prices), and low-stock alerts.
-- **Products:** create, browse, edit, and manage products, including SKU, prices, quantities, categories, suppliers, and locally hosted images. Browse products in grid or table views.
-- **Categories and suppliers:** manage reference data for inventory.
-- **Sales:** record sales and deduct sold quantities from stock, with transaction-based updates.
-- **Stock movements:** record incoming and outgoing inventory adjustments.
-- **Authentication:** JWT-based sign-in and sign-out.
-- **Role-based authorization:** Admin and Employee roles; administrator-only operations are enforced in the API.
-- **User management:** administrators can manage employee accounts and activation status.
+### Dashboard
+- View total product and sales counts.
+- Monitor inventory value calculated using product selling prices.
+- Identify products with low stock levels.
 
-## Technology stack
+### Product Management
+- Create, browse, and update product records.
+- Manage SKUs, prices, stock quantities, categories, and suppliers.
+- Display locally hosted product images.
+- Browse inventory using grid and table views.
 
-| Layer | Technology |
+### Categories and Suppliers
+- Manage product categories.
+- Maintain supplier information.
+- Organize reference data used throughout the inventory system.
+
+### Sales Management
+- Record sales transactions.
+- Automatically deduct sold quantities from inventory.
+- Use database transactions to maintain consistency during sales operations.
+
+### Stock Movements
+- Track incoming and outgoing stock adjustments.
+- Maintain inventory movement records.
+
+### Authentication and Authorization
+- JWT-based authentication.
+- Admin and Employee roles.
+- Backend enforcement of role-based permissions.
+- Account activation checks for authenticated users.
+
+### User Management
+- Administrative management of employee accounts.
+- Employee account activation and deactivation.
+- Restrictions on administrative role changes.
+
+## Technology Stack
+
+| Layer | Technologies |
 | --- | --- |
+| Frontend | React, Vite, JavaScript, CSS |
 | Backend | ASP.NET Core 8 Web API, C# |
 | Database | Microsoft SQL Server |
-| Data access | Entity Framework Core |
-| Frontend | React, Vite, JavaScript, CSS |
-| Authentication | JWT Bearer authentication; ASP.NET Core password hashing |
-| API exploration | Swagger (development environment) |
-| Tests | xUnit-based API tests |
+| ORM | Entity Framework Core |
+| Authentication | JWT Bearer Authentication |
+| Password Security | ASP.NET Core Password Hashing |
+| Authorization | Role-Based Access Control |
+| API Documentation | Swagger |
+| Automated Testing | xUnit |
 
-## Project structure
+## Project Structure
 
 ```text
-StockMaster.API/
-├── Controllers/                 # API endpoints
-├── Data/                        # Entity Framework DbContext
-├── DTOs/                        # API request models
-├── Models/                      # Entity models
-├── stockmaster.client/          # React/Vite frontend
-│   ├── public/products/         # Local product image assets
-│   └── src/                     # Frontend source
-├── StockMaster.API.Tests/       # Automated tests (if present in solution)
-└── README.md                    # This file
+StockMaster-FullStack/
+├── StockMaster.API/
+│   ├── Controllers/
+│   ├── Data/
+│   ├── DTOs/
+│   ├── Models/
+│   ├── Program.cs
+│   ├── appsettings.json
+│   └── README.md
+│
+├── StockMaster.API.Tests/
+│
+├── StockMaster.DevTools/
+│
+├── stockmaster.client/
+│   ├── public/
+│   │   └── products/
+│   ├── src/
+│   └── package.json
+│
+└── StockMaster.API.sln
 ```
 
-## Local development
+**Directory overview:**
+
+- `StockMaster.API` — ASP.NET Core backend, API controllers, business operations, and data access.
+- `StockMaster.API.Tests` — automated API tests.
+- `StockMaster.DevTools` — supporting development utilities.
+- `stockmaster.client` — React frontend application and static assets.
+- `StockMaster.API.sln` — Visual Studio solution file.
+
+## Getting Started
 
 ### Prerequisites
 
+Install the following:
+
 - .NET 8 SDK
-- Node.js and npm compatible with the installed Vite version
+- Node.js and npm compatible with the project's Vite version
 - Microsoft SQL Server
-- Visual Studio 2022 or another .NET-capable IDE
+- Visual Studio 2022 or another compatible .NET development environment
 
-### 1. Configure the database
+### 1. Database Configuration
 
-Create or restore a **development database** with the schema expected by the Entity Framework models. Configure the `DefaultConnection` connection string for your local SQL Server instance using ASP.NET Core User Secrets or environment variables.
+Create or restore a development database containing the schema expected by the Entity Framework models.
 
-> This repository does not include a complete database initialization script. The database schema must be provided separately before the API can run successfully.
+Configure the `DefaultConnection` connection string for your local SQL Server instance using **ASP.NET Core User Secrets** or environment variables.
 
-The current development configuration contains a safety check requiring the database name `StockMasterDB_Test`. Do not point the development configuration at a production or original database without reviewing that safeguard and your deployment configuration.
+**Important:** The repository does not currently include a complete database initialization script. The database schema must be prepared separately before the API can run successfully.
 
-### 2. Configure JWT
+The current development configuration includes a database safety check requiring the database name:
 
-Set the following values through **User Secrets** or environment variables, not in source control:
+```text
+StockMasterDB_Test
+```
 
-- `Jwt:Key` — a strong signing key of at least 32 UTF-8 bytes
-- `Jwt:Issuer`
-- `Jwt:Audience`
+Do not connect the development environment to the original or a production database without reviewing the database safeguard and deployment configuration.
 
-For example, from the API project directory:
+### 2. JWT Configuration
+
+Configure the following settings securely:
+
+| Setting | Description |
+| --- | --- |
+| `Jwt:Key` | JWT signing key, at least 32 UTF-8 bytes |
+| `Jwt:Issuer` | Token issuer |
+| `Jwt:Audience` | Intended token audience |
+
+From the API project directory, example commands are:
 
 ```bash
 dotnet user-secrets set "Jwt:Key" "REPLACE_WITH_YOUR_OWN_LONG_RANDOM_SECRET"
@@ -73,59 +137,31 @@ dotnet user-secrets set "Jwt:Issuer" "StockMaster"
 dotnet user-secrets set "Jwt:Audience" "StockMasterClient"
 ```
 
-These are **illustrative values**. Use settings consistent with your environment and keep real secrets private.
+These values are examples only. Use settings appropriate for your environment, and never commit real secrets.
 
-### 3. Start the backend
+### 3. Run the Backend
 
-Open the solution in Visual Studio 2022, select the API HTTPS launch profile, and run the project. Swagger is available in the development environment, typically at:
+1. Open `StockMaster.API.sln` in Visual Studio 2022.
+2. Select `StockMaster.API` as the startup project.
+3. Select the HTTPS launch profile.
+4. Run the application.
+
+Swagger is available in the development environment, typically at:
 
 ```text
 https://localhost:7106/swagger
 ```
 
-The port depends on your local launch settings.
+The exact port may vary according to the local launch settings.
 
-### 4. Start the frontend
+### 4. Run the Frontend
 
-From `stockmaster.client`:
+Open a terminal in the frontend directory:
 
 ```bash
+cd stockmaster.client
 npm install
 npm run dev
 ```
 
-Open the local address printed by Vite (commonly `http://localhost:5173`). The frontend requires the API to be running and reachable.
-
-### 5. Build the frontend
-
-```bash
-npm run build
-```
-
-## Access and permissions
-
-- **Admin:** access to inventory operations and administrative functions such as user management and restricted deletion operations.
-- **Employee:** access to authorized day-to-day inventory and sales operations.
-
-The API enforces authorization independently of which controls are visible in the frontend. Accounts and credentials should be provisioned securely for each environment; no default passwords are published here.
-
-## Product images
-
-Product image files are served from `stockmaster.client/public/products/`. The product's `ImageUrl` field stores a local URL such as:
-
-```text
-/products/laptop-dell-inspiron-15.jpg
-```
-
-Product illustrations are demonstration assets and may not exactly match real commercial models.
-
-## Security and deployment notes
-
-- Never commit `secrets.json`, passwords, JWT signing keys, or real connection strings.
-- Do not commit `node_modules`, build outputs, or development database backups.
-- Configure HTTPS, environment-specific settings, database access, and CORS appropriately before deploying.
-- Successful local builds do not by themselves establish production readiness; review authorization, session handling, error responses, backups, and hosting configuration before going live.
-
-## Current status
-
-The core application is implemented and runs locally with demonstration inventory data. Production deployment and a reproducible database setup are not yet documented as complete.
+Open the local address displayed by Vite,

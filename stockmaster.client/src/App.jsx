@@ -1,6 +1,7 @@
 ﻿
 import { useCallback, useEffect, useState } from "react";
 import "./App.css";
+import { jsPDF } from "jspdf";
 
 const navigation = [
     { id: "dashboard", icon: "◫", label: "Dashboard" },
@@ -97,6 +98,7 @@ function App() {
     // Keep the access token in memory, not localStorage.
     // Refreshing the browser requires logging in again.
     const [session, setSession] = useState(null);
+    const [accountMenuOpen, setAccountMenuOpen] = useState(false);
     const [loginEmail, setLoginEmail] = useState("");
     const [loginPassword, setLoginPassword] = useState("");
     const [loginError, setLoginError] = useState("");
@@ -110,6 +112,7 @@ function App() {
     const [salesSearch, setSalesSearch] = useState("");
     const [salesError, setSalesError] = useState("");
     const [saleEditor, setSaleEditor] = useState(null);
+    const [saleProductSearch, setSaleProductSearch] = useState("");
     const [saleSaving, setSaleSaving] = useState(false);
     const [saleFormError, setSaleFormError] = useState("");
     const [saleNotice, setSaleNotice] = useState("");
@@ -207,6 +210,7 @@ function App() {
 
     const logout = () => {
         setSession(null);
+        setAccountMenuOpen(false);
         setLoginPassword("");
         setLoginError("");
         setProducts([]);
@@ -371,9 +375,69 @@ function App() {
         }
     };
 
+    const downloadInvoicePdf = (sale) => {
+        if (!sale?.items?.length) return;
+        const pdf = new jsPDF({ unit: "mm", format: "a4" });
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const margin = 17;
+        const right = pageWidth - margin;
+        pdf.setFillColor(18, 34, 68);
+        pdf.rect(0, 0, pageWidth, 42, "F");
+        pdf.setTextColor(255, 255, 255);
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(22);
+        pdf.text("StockMaster", margin, 19);
+        pdf.setFont("helvetica", "normal");
+        pdf.setFontSize(10);
+        pdf.text("Inventory & Sales Management", margin, 27);
+        pdf.text(`INVOICE #${sale.id}`, right, 19, { align: "right" });
+        pdf.setTextColor(33, 48, 75);
+        pdf.setFontSize(11);
+        pdf.text(`Date: ${formatSaleDate(sale.date)}`, margin, 54);
+        // jsPDF's built-in fonts support Latin text; avoid corrupting PDF with unsupported glyphs.
+        const printableUser = String(sale.userName ?? "").replace(/[^\x20-\x7E]/g, "");
+        pdf.text(`Created by: ${printableUser || "StockMaster user"}`, margin, 62);
+        let y = 78;
+        const drawHeader = () => {
+            pdf.setFillColor(235, 242, 255);
+            pdf.rect(margin, y - 6, pageWidth - margin * 2, 11, "F");
+            pdf.setFont("helvetica", "bold");
+            pdf.setFontSize(9);
+            pdf.text("PRODUCT", margin + 3, y);
+            pdf.text("QTY", 121, y, { align: "right" });
+            pdf.text("UNIT PRICE", 154, y, { align: "right" });
+            pdf.text("TOTAL", right - 2, y, { align: "right" });
+            y += 13;
+        };
+        drawHeader();
+        pdf.setFont("helvetica", "normal");
+        for (const item of sale.items) {
+            if (y > 264) { pdf.addPage(); y = 24; drawHeader(); pdf.setFont("helvetica", "normal"); }
+            const productName = String(item.productName ?? "Product").replace(/[^\x20-\x7E]/g, "?");
+            const shortName = productName.length > 39 ? `${productName.slice(0, 36)}...` : productName;
+            pdf.text(shortName, margin + 3, y);
+            pdf.text(String(item.quantity), 121, y, { align: "right" });
+            pdf.text(money(item.unitPrice), 154, y, { align: "right" });
+            pdf.text(money(item.lineTotal), right - 2, y, { align: "right" });
+            pdf.setDrawColor(233, 238, 246);
+            pdf.line(margin, y + 5, right, y + 5);
+            y += 14;
+        }
+        if (y > 265) { pdf.addPage(); y = 25; }
+        pdf.setFont("helvetica", "bold");
+        pdf.setFontSize(15);
+        pdf.setTextColor(27, 90, 219);
+        pdf.text(`Total: ${money(sale.totalAmount)}`, right, y + 13, { align: "right" });
+        pdf.setFontSize(9);
+        pdf.setTextColor(110, 125, 150);
+        pdf.text("Thank you for your business!", pageWidth / 2, 286, { align: "center" });
+        pdf.save(`StockMaster-Invoice-${sale.id}.pdf`);
+    };
+
     const openSaleEditor = () => {
         setSaleNotice("");
         setSaleFormError("");
+        setSaleProductSearch("");
         setSaleEditor({ items: [{ productId: "", quantity: "1" }] });
     };
 
@@ -1035,6 +1099,10 @@ function App() {
     const currentUser = session.user;
     const currentName = currentUser.fullName ?? currentUser.FullName ?? "User";
     const currentRole = currentUser.role ?? currentUser.Role ?? "Employee";
+    const currentEmail = currentUser.email ?? currentUser.Email ?? "";
+    const profilePicture = String(currentRole).toLowerCase() === "admin"
+        ? "/avatars/admin.svg"
+        : "/avatars/employee.svg";
 
     return (
         <div className="app-layout">
@@ -1070,7 +1138,7 @@ function App() {
                     </div>
 
                     <div className="profile">
-                        <div className="avatar">AD</div>
+                        <img className="avatar sm-account-avatar" src={profilePicture} alt={`${currentRole} avatar`} />
                         <div>
                             <strong>{currentName}</strong>
                             <span>{currentRole}</span>
@@ -1087,9 +1155,40 @@ function App() {
                         <strong>{currentPage?.label}</strong>
                     </div>
 
-                    <div className="topbar-right">
-                        <span className="demo-label">StockMaster</span>
-                        <div className="top-avatar">{currentName.slice(0, 2).toUpperCase()}</div>
+                    <div className="topbar-right sm-header-actions">
+                        <div className="sm-account-wrapper">
+                            <button
+                                type="button"
+                                className="sm-account-trigger"
+                                aria-label="Account menu"
+                                aria-haspopup="menu"
+                                aria-expanded={accountMenuOpen}
+                                onClick={() => setAccountMenuOpen(open => !open)}
+                            >
+                                <img className="top-avatar sm-account-avatar" src={profilePicture} alt="" />
+                                <span className="sm-account-info">
+                                    <strong>{currentName}</strong>
+                                    <small>{currentRole === "Admin" ? "Administrator" : "Employee"}</small>
+                                </span>
+                                <svg className={`sm-account-chevron ${accountMenuOpen ? "open" : ""}`} width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="m6 9 6 6 6-6" /></svg>
+                            </button>
+                            {accountMenuOpen && (
+                                <>
+                                    <button type="button" className="sm-account-dismiss" aria-label="Close account menu" onClick={() => setAccountMenuOpen(false)} />
+                                    <div className="sm-account-dropdown" role="menu">
+                                        <div className="sm-account-dropdown-head">
+                                            <img src={profilePicture} alt="" />
+                                            <div><strong>{currentName}</strong><span>{currentEmail || currentRole}</span></div>
+                                        </div>
+                                        <div className="sm-account-role">Signed in as <strong>{currentRole}</strong></div>
+                                        <button type="button" role="menuitem" className="sm-account-logout" onClick={logout}>
+                                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" /></svg>
+                                            Log out
+                                        </button>
+                                    </div>
+                                </>
+                            )}
+                        </div>
                     </div>
                 </header>
 
@@ -1461,7 +1560,7 @@ function App() {
                                                     <td>{formatSaleDate(sale.date)}</td>
                                                     <td>{sale.userName}</td>
                                                     <td className="product-name">{money(sale.totalAmount)}</td>
-                                                    <td><button type="button" className="outline-button" onClick={() => openSaleDetails(sale.id)}>View Details</button></td>
+                                                    <td><button type="button" className="outline-button" onClick={() => openSaleDetails(sale.id)}>View Invoice / PDF</button></td>
                                                 </tr>
                                             ))}
                                         </tbody>
@@ -1662,13 +1761,16 @@ function App() {
             )}
             {saleDetails && (
                 <div role="presentation" style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,.55)", zIndex: 1100, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-                    <section role="dialog" aria-modal="true" aria-label={`Sale #${saleDetails.id} details`} style={{ background: "white", width: "min(760px, 100%)", maxHeight: "90vh", overflowY: "auto", borderRadius: 16, padding: 28, boxShadow: "0 20px 60px rgba(0,0,0,.2)" }}>
+                    <section role="dialog" aria-modal="true" aria-label={`Sale #${saleDetails.id} details`} className="sm-sale-modal sm-invoice-modal">
                         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, marginBottom: 18 }}>
                             <div>
                                 <div className="eyebrow">SALES / INVOICE</div>
                                 <h2 style={{ margin: "6px 0 0" }}>Sale #{saleDetails.id}</h2>
                             </div>
-                            <button type="button" className="outline-button" onClick={() => setSaleDetails(null)}>Close</button>
+                            <div className="sm-invoice-actions">
+                                {saleDetails.data && <button type="button" className="primary-button" onClick={() => downloadInvoicePdf(saleDetails.data)}>↓ Download PDF</button>}
+                                <button type="button" className="outline-button" onClick={() => setSaleDetails(null)}>Close</button>
+                            </div>
                         </div>
                         {saleDetailsLoading && <p role="status">Loading invoice details...</p>}
                         {saleDetailsError && <div role="alert" style={{ padding: 14, background: "#fff1f2", color: "#9f1239", borderRadius: 8 }}>{saleDetailsError}</div>}
@@ -1705,16 +1807,18 @@ function App() {
             )}
             {saleEditor && (
                 <div role="presentation" style={{ position: "fixed", inset: 0, background: "rgba(15,23,42,.55)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-                    <section role="dialog" aria-modal="true" aria-label="New Sale" style={{ background: "white", width: "min(680px, 100%)", maxHeight: "90vh", overflowY: "auto", borderRadius: 16, padding: 28, boxShadow: "0 20px 60px rgba(0,0,0,.2)" }}>
-                        <h2 style={{ marginTop: 0 }}>New Sale</h2>
+                    <section role="dialog" aria-modal="true" aria-label="New Sale" className="sm-sale-modal">
+                        <h2 className="sm-sale-modal-title">🛒 Create New Sale</h2>
                         <p style={{ color: "#64748b" }}>Local development only. Confirming creates a real sale in the connected test database and deducts stock.</p>
                         <form onSubmit={saveSale}>
+                            <label className="sm-sale-search-label" htmlFor="sm-sale-product-search">Search products</label>
+                            <input id="sm-sale-product-search" className="sm-sale-product-search" type="search" placeholder="Search by product name, SKU or category..." value={saleProductSearch} onChange={e => setSaleProductSearch(e.target.value)} />
                             {saleEditor.items.map((item, index) => (
-                                <div key={index} style={{ display: "grid", gridTemplateColumns: "minmax(0,2fr) minmax(100px,1fr) auto", gap: 10, alignItems: "end", marginBottom: 14 }}>
+                                <div key={index} className="sm-sale-item-row">
                                     <label style={{ display: "grid", gap: 6 }}>Product
                                         <select required value={item.productId} onChange={e => setSaleEditor(current => ({ ...current, items: current.items.map((row, i) => i === index ? { ...row, productId: e.target.value } : row) }))} style={{ padding: 11, border: "1px solid #dbe3ee", borderRadius: 8, minWidth: 0 }}>
                                             <option value="">Select product</option>
-                                            {products.filter(p => p.quantity > 0).map(p => <option key={p.id} value={p.id}>{p.name} — {p.quantity} in stock — {money(p.price)}</option>)}
+                                            {products.filter(p => p.quantity > 0 && (!saleProductSearch.trim() || `${p.name} ${p.sku} ${p.category}`.toLowerCase().includes(saleProductSearch.trim().toLowerCase()) || String(p.id) === String(item.productId))).map(p => <option key={p.id} value={p.id}>{p.name} — {p.quantity} in stock — {money(p.price)}</option>)}
                                         </select>
                                     </label>
                                     <label style={{ display: "grid", gap: 6 }}>Quantity
